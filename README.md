@@ -3,7 +3,8 @@
 This is a modified fork of [Open iPhone Use](https://github.com/semsturgut/open-iphone-use),
 based on upstream v0.1.1. The `ios-control` branch turns touches from an iPad's landscape
 stream onto its touch panel, crops the encoder's padding from frames, and types through each
-phone's hardware keyboard layout. See [FORK.md](FORK.md) for the changes.
+phone's hardware keyboard layout, and stops idle screen streams. See [FORK.md](FORK.md) for the
+changes.
 The project retains its [Apache License 2.0](LICENSE).
 
 ---
@@ -53,7 +54,8 @@ open-iphone-use new
 `serve` starts in the background and prints a `Web UI:` link (`http://127.0.0.1:27893`).
 `new` adds the connected phone; with several phones it asks which one, or takes
 `--udid UDID` (`open-iphone-use candidates` lists them). You can also select **Add phone** in
-the Web UI. Typing assumes the US hardware keyboard layout; for a phone set to Swedish in
+the Web UI. A phone's screen streams only while it is in use: after five idle minutes
+(`serve --idle-minutes`) the stream stops, and the next request restarts it in about a second. Typing assumes the US hardware keyboard layout; for a phone set to Swedish in
 Settings > General > Keyboard > Hardware Keyboard, add it with `--keyboard-layout sv`.
 
 **Watch it live.** The Web UI shows each phone's screen live; click the screen to tap. It is

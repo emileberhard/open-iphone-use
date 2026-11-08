@@ -35,6 +35,9 @@ class FakeBackend:
         self.closed = False
         self.label = 'Connected over USB'
 
+    def wake(self, timeout=15):
+        pass
+
     def request(self, operation, **arguments):
         self.calls.append((operation, arguments))
         if operation == 'pointer_tap' and self.block:

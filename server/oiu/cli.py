@@ -62,7 +62,7 @@ def serve(args):
         registry.instance_id=os.environ.get("OIU_DAEMON_START_ID") or uuid.uuid4().hex
         def backend(device):
             from .coredevice import CoreDeviceBackend
-            return CoreDeviceBackend(device,device.udid)
+            return CoreDeviceBackend(device,device.udid,args.idle_minutes*60)
         if not args.no_control:
             registry.backend_factory=backend
             for device in registry.devices.values():
@@ -94,6 +94,7 @@ def main():
     mode.add_argument('--daemon',action='store_true',help=argparse.SUPPRESS)
     start.add_argument('--port',type=int,default=DEFAULT_PORT,help='Web UI port on 127.0.0.1')
     start.add_argument('--no-control',action='store_true',help='Diagnostics: list phones without connecting to them')
+    start.add_argument('--idle-minutes',type=float,default=5,help='Stop a phone\'s screen stream after this long unused; the next request restarts it')
     sub.add_parser('devices',help='List added phones'); sub.add_parser('mcp'); sub.add_parser('stop')
     sub.add_parser('candidates',help='List connected phones (USB or Wi-Fi) that can be added')
     for name in ('new','add'):

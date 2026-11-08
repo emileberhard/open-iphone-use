@@ -37,6 +37,7 @@ BUTTONS = dict(home=(0x0C, 0x40), home_button=(0x0C, 0x40), lock=(0x0C, 0x30), v
 WIFI_MAX_BITRATE = 2_000_000
 # A static screen sends no new video frames; resend the last one so captures stay fresh.
 STILL_FRAME_SECONDS = .5
+IDLE = 'Idle: the screen stream restarts on the next request'
 # PyTCP's userspace stack is a process-global singleton: one USB tunnel, so one USB phone, per
 # server. Wi-Fi phones ride remoted's tunnels and are not limited.
 _usb_tunnel = threading.Lock()
@@ -382,8 +383,9 @@ class CoreDeviceBackend:
     """One phone over CoreDevice. Frames are pulled from the phone and uploaded to its Device."""
     RETRY_SECONDS = 2
 
-    def __init__(self, device, udid, opener=open_connection):
-        self.device, self.udid, self.opener = device, udid, opener
+    def __init__(self, device, udid, idle_seconds, opener=open_connection):
+        self.device, self.udid, self.opener, self.idle_seconds = device, udid, opener, idle_seconds
+        self.used = time.monotonic()
         self.condition = threading.Condition()
         self.connection = None
         self.closed = False
@@ -397,11 +399,23 @@ class CoreDeviceBackend:
         asyncio.run_coroutine_threadsafe(self.start(), self.loop).result(5)
 
     async def start(self):
+        self.wanted = asyncio.Event()
+        self.wanted.set()
         self.task = asyncio.create_task(self.run())
+
+    def wake(self, timeout=15):
+        self.used = time.monotonic()
+        self.loop.call_soon_threadsafe(self.wanted.set)
+        with self.condition:
+            self.condition.wait_for(lambda: self.closed or (self.connection and self.is_fresh()), timeout)
+
+    def idle(self):
+        return time.monotonic() - self.used >= self.idle_seconds
 
     @property
     def label(self):
         connection = self.connection
+        if self.error == IDLE: return IDLE
         if self.error or connection is None: return 'Not connected: ' + (self.error or 'reconnecting')
         if not connection.hid_available: return 'Screen only: ' + connection.reason
         return 'Connected over ' + getattr(connection, 'transport', 'USB')
@@ -411,20 +425,25 @@ class CoreDeviceBackend:
 
     async def run(self):
         while not self.closed:
+            await self.wanted.wait()
             try:
                 async with self.opener(self.udid) as connection:
                     self.connection, self.error = connection, ''
                     frames = connection.frames()
-                    while True:
+                    while not self.idle():
                         requested = time.monotonic()
                         self.deliver(await anext(frames), requested)
+                self.error = IDLE
             except asyncio.CancelledError:
                 raise
             except Exception as error:  # Tunnel, pairing and service errors are reported, then retried.
                 self.error = str(error) or type(error).__name__
             finally:
                 self.connection = None
-            await asyncio.sleep(self.RETRY_SECONDS)
+            if self.idle():
+                self.wanted.clear()
+            elif self.error != IDLE:
+                await asyncio.sleep(self.RETRY_SECONDS)
 
     def deliver(self, image, requested):
         # A screenshot requested before an input ended may predate its effect.

@@ -122,6 +122,8 @@ iPad Pro 11-inch (3rd generation, iPad13,4), iPadOS 27.0.1, Xcode 27.2, USB:
 - With the hardware keyboard layout set to Swedish and the iPad added with
   `--keyboard-layout sv`, `type_text` entered every printable ASCII character and
   `åäöÅÄÖ€£§°éÉüÜ` exactly, apart from iOS turning `"` and `'` into typographic quotes.
+- Streaming, the server used about 48% of one CPU core; with the stream stopped after its idle
+  time, 0%. A snapshot or an action restarted it and returned a live frame after 1.2 s.
 
 Not checked: other devices or iOS versions, long sessions, unlocked use over Wi-Fi, multi-touch,
 apps that use the camera, and the screenshot fallback's CoreDevice capture path.

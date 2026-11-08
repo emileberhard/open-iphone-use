@@ -104,6 +104,7 @@ class Handler(BaseHTTPRequestHandler):
         last = None
         try:
             while not device.removed and not self.server.stopped.is_set():
+                device.backend.wake(0)
                 with device.lock:
                     frame_id, jpeg = device.frame_id, device.jpeg
                 if frame_id and frame_id != last:
@@ -184,6 +185,7 @@ class Handler(BaseHTTPRequestHandler):
             if len(parts) == 4 and parts[:2] == ["api", "devices"]:
                 device = registry.devices[parts[2]]
                 if not post and parts[3] == "snapshot":
+                    device.backend.wake()
                     with device.lock:
                         if not device.jpeg:
                             raise ValueError("No frame received")
@@ -195,6 +197,7 @@ class Handler(BaseHTTPRequestHandler):
                 if not post and parts[3] == "stream":
                     return self.stream(device)
                 if not post and parts[3] == "frame":
+                    device.backend.wake()
                     with device.lock:
                         return self.reply(device.jpeg, mime="image/jpeg")
                 if post and parts[3] == "action":

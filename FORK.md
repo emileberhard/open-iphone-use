@@ -36,6 +36,13 @@ launch encode through that layout, including dead-key compositions such as `é` 
 reject text the layout cannot type before pressing any key. The Swedish table was measured on
 the device for every key and modifier combination.
 
+### 4. Stop idle screen streams
+
+Decoding and re-encoding a phone's stream costs about half a CPU core even when nothing on the
+screen changes. Each phone's stream now stops after five minutes without a snapshot, frame,
+live view or action (`serve --idle-minutes`), and the next one restarts it and waits for a live
+frame, about 1.2 s over USB. Frame IDs from before the pause are no longer valid.
+
 None of these changes has been offered upstream.
 
 ## Known gaps

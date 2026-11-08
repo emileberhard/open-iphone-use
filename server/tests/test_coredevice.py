@@ -63,7 +63,7 @@ class CoreDeviceTests(unittest.TestCase):
     def setUp(self):
         self.connection = FakeConnection()
         self.device = Device('phone', 'Phone', '00008110-TEST')
-        self.device.backend = CoreDeviceBackend(self.device, self.device.udid, opener(self.connection))
+        self.device.backend = CoreDeviceBackend(self.device, self.device.udid, 60, opener(self.connection))
         self.addCleanup(self.device.backend.close)
         deadline = time.monotonic() + 3
         while not self.device.summary()['capture_active'] and time.monotonic() < deadline: time.sleep(.01)
@@ -95,6 +95,21 @@ class CoreDeviceTests(unittest.TestCase):
             self.assertEqual(panel(False, x, y), (x, y))
         self.assertEqual({name: panel(True, x, y) for name, (x, y) in corners.items()},
                          dict(top_left=(UNIT, 0), top_right=(UNIT, UNIT), bottom_left=(0, 0), bottom_right=(0, UNIT)))
+
+    def test_idle_stream_stops_and_restarts_on_use(self):
+        opens = []
+        @contextlib.asynccontextmanager
+        async def counting(udid):
+            opens.append(udid)
+            yield FakeConnection()
+        device = Device('idle', 'Idle', 'u-idle')
+        device.backend = CoreDeviceBackend(device, device.udid, .3, counting)
+        self.addCleanup(device.backend.close)
+        time.sleep(.8)
+        self.assertEqual((len(opens), device.backend.label), (1, coredevice.IDLE))
+        device.backend.wake()
+        self.assertEqual(len(opens), 2)
+        self.assertTrue(device.backend.is_fresh())
 
     def test_click_uses_the_last_pointer_target(self):
         self.act('pointer_move', x=.1, y=.2)
@@ -145,7 +160,7 @@ class CoreDeviceTests(unittest.TestCase):
 
     def test_several_phones_can_share_a_server(self):
         other = Device('two', 'Two', 'other')
-        other.backend = CoreDeviceBackend(other, 'other', opener(FakeConnection()))
+        other.backend = CoreDeviceBackend(other, 'other', 60, opener(FakeConnection()))
         self.addCleanup(other.backend.close)
         deadline = time.monotonic() + 3
         while not other.summary()['capture_active'] and time.monotonic() < deadline: time.sleep(.01)
@@ -188,7 +203,7 @@ class FailingOpenerTests(unittest.TestCase):
             yield
 
         device = Device('phone', 'Phone', 'u1')
-        backend = CoreDeviceBackend(device, 'u1', failing)
+        backend = CoreDeviceBackend(device, 'u1', 60, failing)
         backend.RETRY_SECONDS = 0
         self.addCleanup(backend.close)
         self.assertTrue(attempts.wait(2))

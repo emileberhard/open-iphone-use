@@ -36,6 +36,9 @@ class Unavailable:
     def stop_capture(self):
         return {"ok": True, "message": "Nothing to cancel"}
 
+    def wake(self, timeout=15):
+        pass
+
     def close(self):
         pass
 
@@ -97,6 +100,7 @@ class Device:
             return self.stop()  # Bypasses the action queue to cancel immediately.
         if operation not in ACTIONS:
             raise ValueError("Unknown action")
+        self.backend.wake()
         if not self.slots.acquire(blocking=False):
             raise ValueError("Device action queue full")
         try:
