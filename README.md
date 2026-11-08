@@ -43,7 +43,8 @@ open-iphone-use new
 `serve` starts in the background and prints a `Web UI:` link (`http://127.0.0.1:27893`).
 `new` adds the connected phone; with several phones it asks which one, or takes
 `--udid UDID` (`open-iphone-use candidates` lists them). You can also select **Add phone** in
-the Web UI.
+the Web UI. Typing assumes the US hardware keyboard layout; for a phone set to Swedish in
+Settings > General > Keyboard > Hardware Keyboard, add it with `--keyboard-layout sv`.
 
 **Watch it live.** The Web UI shows each phone's screen live; click the screen to tap. It is
 loopback-only and needs no token, so any local process can operate it: do not expose it
@@ -82,7 +83,7 @@ across server restarts.
 Setup registers the MCP server and agent skill for detected clients (Codex, Claude Code,
 Cursor, OpenCode, Command Code). Use an image-capable agent. The tools:
 
-- **Setup and status:** `list_candidates`, `create_device` (with `udid`), `remove_device`,
+- **Setup and status:** `list_candidates`, `create_device` (with `udid` and optional `keyboard_layout`), `remove_device`,
   `list_devices`, `get_device_status`, `get_latest_screenshot`, `stop_control`.
 - **Input:** `ensure_session`, `pointer_tap`, `type_text`, `send_key`, `swipe`, `scroll`,
   `advance_feed`. `send_key` also takes `home`, `lock`, `volume_up`, `volume_down`, `mute` and

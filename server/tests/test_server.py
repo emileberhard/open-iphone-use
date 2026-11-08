@@ -113,6 +113,14 @@ class ServerTests(unittest.TestCase):
         self.assertEqual(self.api('/api/devices', {'udid': '00008030-CCCC'})['device_id'], created['device_id'])
         with self.assertRaises(HTTPError): self.api('/api/devices', {'udid': '../etc'})
 
+    def test_keyboard_layout_is_validated_and_persisted(self):
+        with self.assertRaises(HTTPError): self.api('/api/devices', {'udid': '00008030-CCCC', 'keyboard_layout': 'dvorak'})
+        created = self.api('/api/devices', {'udid': '00008030-CCCC', 'keyboard_layout': 'sv'})
+        self.assertEqual(created['keyboard_layout'], 'sv')
+        self.assertEqual(Registry(self.tmp.name).devices[created['device_id']].keyboard_layout, 'sv')
+        self.assertEqual(self.api('/api/devices', {'udid': '00008030-CCCC'})['keyboard_layout'], 'sv')
+        self.assertEqual(self.api('/api/devices', {'udid': '00008030-CCCC', 'keyboard_layout': 'us'})['keyboard_layout'], 'us')
+
     def test_phones_persist_and_bluetooth_records_are_dropped(self):
         state = json.loads((Path(self.tmp.name) / 'state.json').read_text())
         state['devices'].append(dict(id='legacy', name='Old phone', token='t', bt_id='peer'))

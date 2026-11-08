@@ -111,8 +111,17 @@ class CoreDeviceTests(unittest.TestCase):
         self.assertTrue(self.act('type_text', text='aB')['ok'])
         self.assertEqual(self.connection.calls, [('press', (0x04,)), ('press', (0xE1, 0x05))])
 
+    def test_swedish_layout_types_its_own_keys(self):
+        self.device.keyboard_layout = 'sv'
+        self.assertTrue(self.act('type_text', text='@å~é')['ok'])
+        self.assertEqual(self.connection.calls, [('press', (0xE2, 0x1F)), ('press', (0x2F,)), ('press', (0xE2, 0x30)),
+                                                 ('press', (0x2C,)), ('press', (0x2E,)), ('press', (0x08,))])
+        self.assertFalse(self.act('type_text', text='aæ')['ok'])
+        self.act('send_key', key='cmd+-')
+        self.assertEqual(self.connection.calls[-1], ('press', (0xE3, 0x38)))
+
     def test_key_chords_map_modifiers_to_usages(self):
-        self.assertEqual(held(*chord('cmd+space')), (0xE3, 0x2C))
+        self.assertEqual(held(*chord('cmd+space', 'us')), (0xE3, 0x2C))
         self.assertEqual(held(0, 0x28), (0x28,))
         self.act('send_key', key='cmd+h')
         self.assertEqual(self.connection.calls, [('press', (0xE3, 0x0B))])

@@ -18,7 +18,7 @@ import time
 import uuid
 
 from . import vision
-from .keys import chord, fraction, stroke
+from .keys import chord, fraction, strokes
 
 UNIT = 65535
 HID_SERVICE = 'com.apple.coredevice.hid.universalhidservice'
@@ -473,9 +473,9 @@ class CoreDeviceBackend:
             await connection.touch_service()
             app = args.get('return_app')
             if app is not None:
-                await connection.press(held(*chord('cmd+space'))); await asyncio.sleep(.6)
-                for character in app + '\n':
-                    await connection.press(held(*stroke(character)))
+                await connection.press(held(*chord('cmd+space', self.device.keyboard_layout))); await asyncio.sleep(.6)
+                for key in strokes(app + '\n', self.device.keyboard_layout):
+                    await connection.press(held(*key))
                 await asyncio.sleep(.5)
             return 'Input is ready'
         if operation == 'pointer_move':
@@ -489,17 +489,16 @@ class CoreDeviceBackend:
             return 'Touched (%s,%s)' % self.point
         if operation == 'type_text':
             text = args['text']
-            if not isinstance(text, str) or len(text.encode()) > 500: raise ValueError('Text must contain at most 500 ASCII bytes')
-            strokes = [stroke(c) for c in text]  # Validate all text before any report.
-            for modifier, usage in strokes:
-                await connection.press(held(modifier, usage))
+            if not isinstance(text, str) or len(text) > 500: raise ValueError('Text must contain at most 500 characters')
+            for key in strokes(text, self.device.keyboard_layout):
+                await connection.press(held(*key))
             return None
         if operation == 'send_key':
             key = args['key']
             if isinstance(key, str) and key.lower() in BUTTONS:
                 await connection.button(*BUTTONS[key.lower()])
                 return 'Pressed the %s hardware button' % key.lower()
-            await connection.press(held(*chord(key)))
+            await connection.press(held(*chord(key, self.device.keyboard_layout)))
             return None
         if operation == 'scroll':
             amount = args.get('dy', 0)

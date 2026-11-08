@@ -119,6 +119,9 @@ iPad Pro 11-inch (3rd generation, iPad13,4), iPadOS 27.0.1, Xcode 27.2, USB:
   of the four interface orientations hit the intended key on the on-screen keyboard.
 - The display is 2388×1668. The encoder pads the frame on the right and bottom, and frames are
   now cropped to the display.
+- With the hardware keyboard layout set to Swedish and the iPad added with
+  `--keyboard-layout sv`, `type_text` entered every printable ASCII character and
+  `åäöÅÄÖ€£§°éÉüÜ` exactly, apart from iOS turning `"` and `'` into typographic quotes.
 
 Not checked: other devices or iOS versions, long sessions, unlocked use over Wi-Fi, multi-touch,
 apps that use the camera, and the screenshot fallback's CoreDevice capture path.

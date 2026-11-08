@@ -1,4 +1,4 @@
-"""US-layout key strokes and chords as (modifier bits, HID keyboard usage)."""
+"""Key strokes per hardware keyboard layout and chords as (modifier bits, HID keyboard usage)."""
 import math
 
 
@@ -20,7 +20,30 @@ def stroke(character):
     raise ValueError(f'Unsupported ASCII character U+{ord(character):04X}')
 
 
-def chord(value):
+US = {character: (stroke(character),) for character in map(chr, range(32, 127))} | {
+    character: (stroke(character),) for character in '\n\r\t\b'}
+SWEDISH = {character: keys for character, keys in US.items() if character.isalnum() or character in ' \n\r\t\b'} | {
+    character: ((modifier, usage),) for character, (modifier, usage) in {
+        '!': (2, 0x1E), '"': (2, 0x1F), '#': (2, 0x20), '$': (4, 0x21), '%': (2, 0x22), '&': (2, 0x23),
+        "'": (0, 0x31), '(': (2, 0x25), ')': (2, 0x26), '*': (2, 0x31), '+': (0, 0x2D), ',': (0, 0x36),
+        '-': (0, 0x38), '.': (0, 0x37), '/': (2, 0x24), ':': (2, 0x37), ';': (2, 0x36), '<': (0, 0x35),
+        '=': (2, 0x27), '>': (2, 0x35), '?': (2, 0x2D), '@': (4, 0x1F), '[': (4, 0x25), '\\': (6, 0x24),
+        ']': (4, 0x26), '^': (6, 0x30), '_': (2, 0x38), '`': (6, 0x2E), '{': (6, 0x25), '|': (4, 0x24),
+        '}': (6, 0x26), 'å': (0, 0x2F), 'Å': (2, 0x2F), 'ä': (0, 0x34), 'Ä': (2, 0x34), 'ö': (0, 0x33),
+        'Ö': (2, 0x33), '€': (2, 0x21), '£': (4, 0x20), '§': (0, 0x64), '°': (2, 0x64)}.items()} | {
+    '~': ((4, 0x30), (0, 0x2C)), 'é': ((0, 0x2E), (0, 0x08)), 'É': ((0, 0x2E), (2, 0x08)),
+    'ü': ((0, 0x30), (0, 0x18)), 'Ü': ((0, 0x30), (2, 0x18))}
+LAYOUTS = dict(us=US, sv=SWEDISH)
+
+
+def strokes(text, layout):
+    table = LAYOUTS[layout]
+    missing = sorted({character for character in text if character not in table})
+    if missing: raise ValueError(f'The {layout} keyboard layout cannot type: ' + ' '.join(map(repr, missing)))
+    return [key for character in text for key in table[character]]
+
+
+def chord(value, layout):
     if not isinstance(value, str): raise ValueError('Key must be a string')
     parts = value.lower().split('+')
     modifier = 0
@@ -36,7 +59,10 @@ def chord(value):
     key = alias.get(parts[-1], parts[-1])
     if key in keys: return modifier, keys[key]
     if len(key) == 1:
-        extra, usage = stroke(key)
+        typed = LAYOUTS[layout].get(key)
+        if not typed: raise ValueError(f'The {layout} keyboard layout has no key for {key!r}')
+        if len(typed) > 1: raise ValueError(f'{key!r} needs several keystrokes on the {layout} layout; use type_text')
+        extra, usage = typed[0]
         return modifier | extra, usage
     raise ValueError(f'Unknown key: {key}. Accepted: return/enter, tab, esc/escape, del/delete, bksp/backspace, space, pgup/pageup, pgdn/pagedown, up/down/left/right, cmd/ctrl/shift/alt+<key>, a single character, or a button: home, lock, volume_up, volume_down, mute, siri')
 

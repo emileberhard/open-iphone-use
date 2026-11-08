@@ -9,6 +9,8 @@ import uuid
 from urllib.request import Request, urlopen
 from urllib.error import HTTPError
 
+from .keys import LAYOUTS
+
 from .core import Registry
 from .http import Server
 from .state import StateLease
@@ -97,6 +99,8 @@ def main():
     for name in ('new','add'):
         add=sub.add_parser(name,help='Add a connected phone')
         add.add_argument('--udid',help='Exact phone UDID (otherwise choose interactively)')
+        add.add_argument('--keyboard-layout',choices=sorted(LAYOUTS),default='us',
+                         help="The phone's hardware keyboard layout (Settings > General > Keyboard > Hardware Keyboard)")
     remove=sub.add_parser('remove',help='Remove a phone and stop its control')
     remove.add_argument('device_pos',nargs='?')
     remove.add_argument('--device')
@@ -130,7 +134,7 @@ def main():
                 if selected is None: raise ValueError('That phone is not connected or is already added')
             elif not candidates: raise ValueError('No phones to add. Connect the iPhone by cable and trust this Mac.')
             else: selected=choose(candidates)
-            result=call(args,'/api/devices',{'udid':selected['udid']})
+            result=call(args,'/api/devices',{'udid':selected['udid'],'keyboard_layout':args.keyboard_layout})
             print(f"{result['name']} [{result['device_id']}]: {result['control_status']}")
             print('Watch and control it in the Web UI; agents use it through MCP.')
         elif args.command=='remove':

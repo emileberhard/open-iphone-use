@@ -10,6 +10,7 @@ LOG = logging.getLogger('oiu.mcp')
 SERVER_DOWN = 'Server not running — start it with: open-iphone-use serve'
 from .cli import call
 from .core import ACTIONS, PREPARATION
+from .keys import LAYOUTS
 
 PARAMETERS = {
     "click": {}, "scroll": {"dy": "integer"},
@@ -31,7 +32,7 @@ DESCRIPTIONS = {
     'pointer_tap': 'Touch the exact point given. Check the returned screen for the UI outcome.',
     'pointer_move': 'Set the point that click touches; nothing is touched.',
     'click': 'Touch the point set by pointer_move.',
-    'type_text': 'Type US-layout ASCII text with the phone\'s keyboard focus, at most 500 bytes.',
+    'type_text': 'Type text with the phone\'s keyboard focus through its keyboard layout, at most 500 characters.',
     'send_key': 'Press a key or chord, e.g. return, escape, cmd+space. home, lock, volume_up, volume_down, mute and siri press hardware buttons.',
     'scroll': 'Scroll by dragging a finger; positive dy moves content up (like the wheel), magnitude up to 1200. Verify the result on the returned screen.',
     'swipe': 'Swipe with profile up, down, left or right across the middle of the screen.',
@@ -43,7 +44,9 @@ def tools():
     result = []
     for name in ["list_devices", "list_candidates", "create_device", "remove_device", "get_device_status", "get_latest_screenshot", "stop_control", *sorted(ACTIONS)]:
         props = {} if name in ("list_devices", "list_candidates") else {"device_id": {"type": "string"}}
-        if name == 'create_device': props = {'udid': {'type': 'string'}}
+        if name == 'create_device':
+            props = {'udid': {'type': 'string'}, 'keyboard_layout': {'type': 'string', 'enum': sorted(LAYOUTS), 'description':
+                     "The phone's hardware keyboard layout (Settings > General > Keyboard > Hardware Keyboard); default us."}}
         if name in ACTIONS:
             props["expected_frame_id"] = {"type": "string", "description": "ID of a screenshot from this device after its last input completed, at most 120 seconds old. The frameID that an action's own result returns is valid for the next action, so a new get_latest_screenshot per action is not needed; a frame captured before the last input completed is rejected."}
             props.update({key: {"type": kind} for key, kind in PARAMETERS.get(name, {}).items()})
@@ -52,6 +55,7 @@ def tools():
             props['y']['description'] = FRACTION.format(axis='y', size='height')
         optional = {'expected_frame_id'} if name in PREPARATION else set()
         if name == 'ensure_session': optional.add('return_app')
+        if name == 'create_device': optional.add('keyboard_layout')
         description = DESCRIPTIONS[name] + ' Choose a device explicitly; an accepted action does not prove the UI changed, so inspect each resulting screen.'
         if name in ('get_latest_screenshot', *ACTIONS):
             description += ' Returned frame metadata includes actual width and height in pixels. Coordinates use the full image: x=px/width, y=py/height, origin top-left.'

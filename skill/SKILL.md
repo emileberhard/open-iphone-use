@@ -30,7 +30,7 @@ to perform the requested navigation manually.
    seconds old; the frame an action returns qualifies. After `swipe`, `advance_feed` or `scroll`,
    take a fresh screenshot before targeting because the UI may still be animating.
 5. Use `pointer_tap` for visible controls: touches land exactly at the given point. Focus a
-   field before `type_text` (US-layout ASCII, at most 500 bytes).
+   field before `type_text` (at most 500 characters, typed through the phone's keyboard layout).
 6. Open apps with `ensure_session(return_app="App name")`, or `send_key("cmd+space")`, type the
    name and press `return`. `send_key("home")` presses the Home button; `lock`, `volume_up`,
    `volume_down`, `mute` and `siri` press the other buttons. Cmd+H does not go home on an iPhone.

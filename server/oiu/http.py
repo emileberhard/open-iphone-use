@@ -163,9 +163,10 @@ class Handler(BaseHTTPRequestHandler):
                 return self.reply((WEB / file).read_bytes(), mime=mime)
             if path == "/api/devices":
                 if post:
-                    udid = json.loads(self.body(4096)).get("udid")
+                    data = json.loads(self.body(4096))
+                    udid = data.get("udid")
                     name = next((c.get('name') for c in candidates(registry) if c['udid'] == udid), None)
-                    device = registry.create(udid, name)
+                    device = registry.create(udid, name, data.get("keyboard_layout"))
                     return self.reply(device.summary())
                 return self.reply(registry.list())
             if path == '/api/candidates' and not post:

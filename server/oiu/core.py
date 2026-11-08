@@ -9,6 +9,7 @@ import uuid
 
 from . import vision
 from .files import atomic_json
+from .keys import LAYOUTS
 from .names import specific
 from .permissions import secure_directory
 
@@ -45,6 +46,7 @@ class Device:
     name: str
     udid: str
     name_source: str = "fallback"
+    keyboard_layout: str = "us"
     backend: object = field(default_factory=Unavailable)
     jpeg: bytes = b""
     frame_id: str | None = None
@@ -67,7 +69,7 @@ class Device:
             age = int((time.monotonic() - self.at) * 1000) if self.at else None
             live = self.active and age is not None and age <= 5000
             return dict(device_id=self.id, name=self.name, udid=self.udid, name_source=self.name_source,
-                        frame_id=self.frame_id, age_ms=age, capture_active=live,
+                        keyboard_layout=self.keyboard_layout, frame_id=self.frame_id, age_ms=age, capture_active=live,
                         control_status=getattr(self.backend, "label", "Control configured"))
 
     def upload(self, jpeg):
@@ -156,25 +158,34 @@ class Registry:
         saved = json.loads(self.path.read_text()) if self.path.exists() else {"devices": []}
         self.backend_factory = None
         # Phones from the Bluetooth releases have no UDID and cannot be controlled here.
-        self.devices = {d["id"]: Device(d["id"], d["name"], d["udid"], d.get("name_source", "fallback"))
+        self.devices = {d["id"]: Device(d["id"], d["name"], d["udid"], d.get("name_source", "fallback"),
+                                        d.get("keyboard_layout", "us"))
                         for d in saved["devices"] if d.get("udid")}
         self.save()
 
     def save(self):
         with self.lock:
-            atomic_json(self.path, dict(devices=[dict(id=d.id, name=d.name, udid=d.udid, name_source=d.name_source)
+            atomic_json(self.path, dict(devices=[dict(id=d.id, name=d.name, udid=d.udid, name_source=d.name_source,
+                                                      keyboard_layout=d.keyboard_layout)
                                                  for d in self.devices.values()]))
 
-    def create(self, udid, name=None):
+    def create(self, udid, name=None, keyboard_layout=None):
         if not isinstance(udid, str) or not 1 <= len(udid) <= 64 or not all(c.isalnum() or c == '-' for c in udid):
             raise ValueError('Select a connected phone using its UDID')
+        if keyboard_layout is not None and keyboard_layout not in LAYOUTS:
+            raise ValueError('keyboard_layout must be one of: ' + ', '.join(LAYOUTS))
         with self.lock:
             existing = next((d for d in self.devices.values() if d.udid == udid), None)
-            if existing: return existing
+            if existing:
+                if keyboard_layout and keyboard_layout != existing.keyboard_layout:
+                    existing.keyboard_layout = keyboard_layout
+                    self.save()
+                return existing
             if len(self.devices) >= 64:
                 raise ValueError("64-device limit reached")
             clean = specific(name)
-            device = Device(uuid.uuid4().hex, clean or 'iPhone ' + udid[-6:], udid, 'device' if clean else 'fallback')
+            device = Device(uuid.uuid4().hex, clean or 'iPhone ' + udid[-6:], udid, 'device' if clean else 'fallback',
+                            keyboard_layout or 'us')
             if self.backend_factory: device.backend = self.backend_factory(device)
             self.devices[device.id] = device
             try: self.save()
