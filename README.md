@@ -1,3 +1,13 @@
+# ios-control fork of Open iPhone Use
+
+This is a modified fork of [Open iPhone Use](https://github.com/semsturgut/open-iphone-use),
+based on upstream v0.1.1. The `ios-control` branch turns touches from an iPad's landscape
+stream onto its touch panel, crops the encoder's padding from frames, and types through each
+phone's hardware keyboard layout. See [FORK.md](FORK.md) for the changes.
+The project retains its [Apache License 2.0](LICENSE).
+
+---
+
 # Open iPhone Use
 
 Let an AI agent use your own iPhone. Connect the phone to your Mac by cable or Wi-Fi, and
