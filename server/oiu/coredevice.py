@@ -57,9 +57,11 @@ def held(modifier, usage):
     return tuple(0xE0 + bit for bit in range(8) if modifier >> bit & 1) + ((usage,) if usage else ())
 
 
-def jpeg(image_bytes=None, bgra=None, size=None):
+def jpeg(image_bytes=None, bgra=None, size=None, visible=None):
     from PIL import Image
     image = Image.frombuffer('RGB', size, bgra, 'raw', 'BGRX', 0, 1) if bgra else Image.open(io.BytesIO(image_bytes))
+    if visible and visible[0] <= image.width and visible[1] <= image.height:
+        image = image.crop((0, 0, *visible))
     with image:
         output = io.BytesIO()
         image.convert('RGB').save(output, format='JPEG', quality=80)
@@ -171,7 +173,7 @@ def stream_connection():
             super().__init__(rsd)
             self.updated = asyncio.Event()
             self.tasks = []
-            self.service = self.transport = None
+            self.service = self.transport = self.display = None
 
         @property
         def hid(self):
@@ -200,7 +202,22 @@ def stream_connection():
             self.tasks = [asyncio.create_task(self._udp_recv_and_pipe(self.transport)),
                           asyncio.create_task(self._decoder_refresh_loop()),
                           asyncio.create_task(self._rtcp_send_loop(self.transport))]
+            if SCREEN_CAPTURE_SERVICE in self._rsd.peer_info.get('Services', {}):
+                self.display = await self.display_size()
             await asyncio.sleep(TOUCH_AUTH_SETTLE_SECONDS)
+
+        async def display_size(self):
+            from PIL import Image
+            from pymobiledevice3.remote.core_device.screen_capture_service import ScreenCaptureService
+            async with ScreenCaptureService(self._rsd) as service:
+                image = (await service.capture_screenshot())['image']
+            with Image.open(io.BytesIO(image)) as screenshot:
+                return sorted(screenshot.size)
+
+        def visible(self):
+            if self.display is None: return None
+            short, long = self.display
+            return (long, short) if self.landscape else (short, long)
 
         async def start_capped_stream(self, receiver, max_bitrate):
             """DisplayService.start_video_stream with its bitrate tiers capped. The request is the
@@ -256,7 +273,8 @@ def stream_connection():
                 if self.updated.is_set() or last is None:
                     await self.updated.wait()
                     self.updated.clear()
-                    last = await asyncio.to_thread(jpeg, bgra=self._latest_frame, size=(self._fb_width, self._fb_height))
+                    last = await asyncio.to_thread(jpeg, bgra=self._latest_frame, size=(self._fb_width, self._fb_height),
+                                                   visible=self.visible())
                 yield last
 
         async def touch_service(self):

@@ -117,6 +117,8 @@ iPad Pro 11-inch (3rd generation, iPad13,4), iPadOS 27.0.1, Xcode 27.2, USB:
   The frame is fixed to the hardware: when the interface rotates, the picture rotates inside it.
 - Without the landscape mapping, taps landed elsewhere on the screen. With it, one tap in each
   of the four interface orientations hit the intended key on the on-screen keyboard.
+- The display is 2388×1668. The encoder pads the frame on the right and bottom, and frames are
+  now cropped to the display.
 
 Not checked: other devices or iOS versions, long sessions, unlocked use over Wi-Fi, multi-touch,
 apps that use the camera, and the screenshot fallback's CoreDevice capture path.

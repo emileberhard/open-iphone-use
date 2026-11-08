@@ -154,6 +154,13 @@ class FrameTests(unittest.TestCase):
             self.assertEqual(image.size, (2, 3))
             self.assertGreater(image.getpixel((0, 0))[0], 200)  # BGRA red stays red.
 
+    def test_encoder_padding_is_cropped_to_the_display(self):
+        padded = jpeg(bgra=bytes(4) * 4 * 5, size=(4, 5), visible=(3, 4))
+        with Image.open(io.BytesIO(padded)) as image:
+            self.assertEqual(image.size, (3, 4))
+        with Image.open(io.BytesIO(jpeg(bgra=bytes(4) * 4 * 5, size=(4, 5), visible=(5, 4)))) as image:
+            self.assertEqual(image.size, (4, 5))
+
 
 class BitrateTests(unittest.TestCase):
     def test_only_network_caps_are_lowered(self):
