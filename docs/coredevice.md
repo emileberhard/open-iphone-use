@@ -111,5 +111,12 @@ With the cap in the backend, the first frame arrived after 2.7 s, the stream del
 per second and `home` worked. Frame rate depends on what moves on screen. Whether the cap keeps
 the phone cool enough over a long Reels session is not measured yet.
 
+iPad Pro 11-inch (3rd generation, iPad13,4), iPadOS 27.0.1, Xcode 27.2, USB:
+
+- The stream arrived in the panel's landscape frame, 2400×1680 at about 50 frames per second.
+  The frame is fixed to the hardware: when the interface rotates, the picture rotates inside it.
+- Without the landscape mapping, taps landed elsewhere on the screen. With it, one tap in each
+  of the four interface orientations hit the intended key on the on-screen keyboard.
+
 Not checked: other devices or iOS versions, long sessions, unlocked use over Wi-Fi, multi-touch,
 apps that use the camera, and the screenshot fallback's CoreDevice capture path.

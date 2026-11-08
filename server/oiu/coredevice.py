@@ -48,6 +48,10 @@ def units(value):
     return round(fraction(value) * UNIT)
 
 
+def panel(landscape, x, y):
+    return (UNIT - y, x) if landscape else (x, y)
+
+
 def held(modifier, usage):
     """HID keyboard usages held for a (modifier bits, usage) stroke: modifiers are 0xE0 + bit."""
     return tuple(0xE0 + bit for bit in range(8) if modifier >> bit & 1) + ((usage,) if usage else ())
@@ -259,15 +263,20 @@ def stream_connection():
             await self._ensure_hid()
             return self._uhs
 
+        @property
+        def landscape(self):
+            return self._fb_width > self._fb_height
+
         async def tap(self, x, y):
-            await (await self.touch_service()).multi_tap([(x, y)])
+            await (await self.touch_service()).multi_tap([panel(self.landscape, x, y)])
 
         async def drag(self, x1, y1, x2, y2, duration):
-            await (await self.touch_service()).multi_drag([(x1, y1, x2, y2)], steps=max(8, round(duration * 60)), duration=duration)
+            path = (*panel(self.landscape, x1, y1), *panel(self.landscape, x2, y2))
+            await (await self.touch_service()).multi_drag([path], steps=max(8, round(duration * 60)), duration=duration)
 
         async def release(self, x, y):
             if self._uhs is None: return
-            await self._uhs.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, x, y)
+            await self._uhs.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, *panel(self.landscape, x, y))
             if self._kb_service_id is not None: await self._uhs.send_keyboard(self._kb_service_id, ())
 
         async def button(self, page, code):

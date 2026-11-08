@@ -9,7 +9,7 @@ import unittest
 from PIL import Image
 
 from oiu import coredevice
-from oiu.coredevice import CoreDeviceBackend, UNIT, capped, held, jpeg
+from oiu.coredevice import CoreDeviceBackend, UNIT, capped, held, jpeg, panel
 from oiu.core import Device, Registry
 from oiu.keys import chord
 
@@ -88,6 +88,13 @@ class CoreDeviceTests(unittest.TestCase):
         self.assertGreater(self.device.backend.requested, result['inputEndedAt'])
         self.assertEqual(result['frame']['frameID'], self.device.frame_id)
         self.assertTrue(self.act('pointer_tap', x=.5, y=.5)['ok'])  # The returned frame is valid next.
+
+    def test_landscape_frames_turn_onto_the_portrait_touch_panel(self):
+        corners = dict(top_left=(0, 0), top_right=(UNIT, 0), bottom_left=(0, UNIT), bottom_right=(UNIT, UNIT))
+        for name, (x, y) in corners.items():
+            self.assertEqual(panel(False, x, y), (x, y))
+        self.assertEqual({name: panel(True, x, y) for name, (x, y) in corners.items()},
+                         dict(top_left=(UNIT, 0), top_right=(UNIT, UNIT), bottom_left=(0, 0), bottom_right=(0, UNIT)))
 
     def test_click_uses_the_last_pointer_target(self):
         self.act('pointer_move', x=.1, y=.2)
