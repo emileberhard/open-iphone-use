@@ -186,7 +186,7 @@ def stream_connection():
     """Reuses pymobiledevice3's VNC pipeline: RTP depacketizing, VideoToolbox decode,
     keyframe recovery and the RTCP keepalive without which iOS drops the stream in ~25 s."""
     from pymobiledevice3.remote.core_device.display_service import DisplayService, require_video_stream_support
-    from pymobiledevice3.remote.core_device.hid_service import TOUCH_AUTH_SETTLE_SECONDS, TOUCHSCREEN_STATE_RELEASE
+    from pymobiledevice3.remote.core_device.hid_service import TOUCH_AUTH_SETTLE_SECONDS, TouchscreenContact
     from pymobiledevice3.remote.core_device.screen_stream import open_media_receiver
     from pymobiledevice3.remote.core_device.vnc_server import VncStreamServer
 
@@ -316,11 +316,11 @@ def stream_connection():
 
         async def drag(self, x1, y1, x2, y2, duration):
             path = (*panel(self.landscape, x1, y1), *panel(self.landscape, x2, y2))
-            await (await self.touch_service()).multi_drag([path], steps=max(8, round(duration * 60)), duration=duration)
+            await (await self.touch_service()).multi_drag([path], steps=0 if (x1, y1) == (x2, y2) else max(8, round(duration * 60)), duration=duration)
 
         async def release(self, x, y):
             if self._uhs is None: return
-            await self._uhs.send_touchscreen(TOUCHSCREEN_STATE_RELEASE, *panel(self.landscape, x, y))
+            await self._uhs.send_multitouch([TouchscreenContact(0, *panel(self.landscape, x, y), False)])
             if self._kb_service_id is not None: await self._uhs.send_keyboard(self._kb_service_id, ())
 
         async def button(self, page, code):

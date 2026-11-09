@@ -99,6 +99,35 @@ class CoreDeviceTests(unittest.TestCase):
             self.assertFalse(result['ok'], result)
         self.assertEqual(len([call for call in self.connection.calls if call[0] == 'drag']), 1)
 
+    def test_cancelled_hold_releases_the_same_hid_contact(self):
+        from pymobiledevice3.remote.core_device.hid_service import UniversalHidService
+
+        class HID:
+            multi_drag = UniversalHidService.multi_drag
+
+            def __init__(self):
+                self.reports = []
+                self.started = asyncio.Event()
+
+            async def send_multitouch(self, contacts, *args):
+                self.reports.append(contacts)
+                self.started.set()
+
+        async def check():
+            hid = HID()
+            connection = coredevice.stream_connection().__new__(coredevice.stream_connection())
+            connection._uhs, connection._kb_service_id = hid, None
+            connection._fb_width, connection._fb_height = 100, 200
+            connection.touch_service = mock.AsyncMock(return_value=hid)
+            task = asyncio.create_task(connection.drag(100, 200, 100, 200, 10))
+            await hid.started.wait()
+            task.cancel()
+            with self.assertRaises(asyncio.CancelledError): await task
+            await connection.release(100, 200)
+            self.assertEqual([(c.identity, c.touching) for report in hid.reports for c in report], [(0, True), (0, False)])
+
+        asyncio.run(check())
+
     def test_landscape_frames_turn_onto_the_portrait_touch_panel(self):
         corners = dict(top_left=(0, 0), top_right=(UNIT, 0), bottom_left=(0, UNIT), bottom_right=(UNIT, UNIT))
         for name, (x, y) in corners.items():
