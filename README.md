@@ -2,9 +2,9 @@
 
 This is a modified fork of [Open iPhone Use](https://github.com/semsturgut/open-iphone-use),
 based on upstream v0.1.1. The `ios-control` branch turns touches from an iPad's landscape
-stream onto its touch panel, crops the encoder's padding from frames, and types through each
-phone's hardware keyboard layout, and stops idle screen streams. See [FORK.md](FORK.md) for the
-changes.
+stream onto its touch panel, crops the encoder's padding from frames, types through each
+phone's hardware keyboard layout, stops idle screen streams and hands the one USB connection to
+whichever phone is asked for. See [FORK.md](FORK.md) for the changes.
 The project retains its [Apache License 2.0](LICENSE).
 
 ---
@@ -54,12 +54,13 @@ open-iphone-use new
 `serve` starts in the background and prints a `Web UI:` link (`http://127.0.0.1:27893`).
 `new` adds the connected phone; with several phones it asks which one, or takes
 `--udid UDID` (`open-iphone-use candidates` lists them). You can also select **Add phone** in
-the Web UI. A phone's screen streams only while it is in use: after five idle minutes
-(`serve --idle-minutes`) the stream stops, and the next request restarts it in about a second.
-Typing assumes the US hardware keyboard layout; for a phone set to Swedish in Settings > General >
-Keyboard > Hardware Keyboard, add it with `--keyboard-layout sv`. iOS reads keys through the
-layout of whichever keyboard is active, and third-party keyboards always use U.S., so a phone with
-several keyboards types predictably only when every language there is set to U.S.
+the Web UI. A phone's screen streams only while it is in use: it starts on the first request,
+after five idle minutes (`serve --idle-minutes`) the stream stops, and the next request restarts
+it in about a second. Typing assumes the US hardware keyboard layout; for a phone set to Swedish
+in Settings > General > Keyboard > Hardware Keyboard, add it with `--keyboard-layout sv`. iOS
+reads keys through the layout of whichever keyboard is active, and third-party keyboards always
+use U.S., so a phone with several keyboards types predictably only when every language there is
+set to U.S.
 
 **Watch it live.** The Web UI shows each phone's screen live; click the screen to tap. It is
 loopback-only and needs no token, so any local process can operate it: do not expose it
@@ -116,7 +117,8 @@ How the tools work:
 
 ## Limits
 
-- One USB phone per server; more phones can join over Wi-Fi.
+- One USB phone streams at a time; more phones can join over Wi-Fi. A USB phone unused for three
+  seconds hands the connection to another USB phone that is asked for.
 - Tested on an iPhone 13 (iOS 27.0, USB and Wi-Fi) and an iPhone SE (iOS 27.0.1, USB), also
   both at once.
   Multi-touch and long sessions are not tested yet.

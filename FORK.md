@@ -47,6 +47,19 @@ screen changes. Each phone's stream now stops after five minutes without a snaps
 live view or action (`serve --idle-minutes`), and the next one restarts it and waits for a live
 frame, about 1.2 s over USB. Frame IDs from before the pause are no longer valid.
 
+### 5. Hand the USB connection to the phone that is asked for
+
+The userspace network stack allows one USB tunnel per process, and every phone used to connect
+when the server started, so the first registered phone held USB and the others failed with "No
+frame received" until it was removed. Phones now connect on their first request, and a phone
+asked for while another holds USB takes the connection over once the holder has gone three
+seconds without a request, with no action running and no live view open. An ios-step call keeps
+its phone in use from its first snapshot to its last, so three seconds separates a phone between
+an agent's calls from one in the middle of a call, and one agent switching between its iPhone and
+iPad waits at most that long. The phone that gave up USB reconnects on its next request in about
+1.2 s. While it waits, a phone's status names the holder and how long ago it was used, and it
+retries every half second.
+
 None of these changes has been offered upstream.
 
 ## Known gaps
@@ -62,6 +75,6 @@ on an iPad Pro 11-inch (3rd generation) only.
 
 ## Upstream audit obligation
 
-On each upstream release, check whether upstream now handles iPad touches, encoder padding or
-keyboard layouts itself, and drop any commit it makes redundant when rebasing `ios-control` onto
-the new tag.
+On each upstream release, check whether upstream now handles iPad touches, encoder padding,
+keyboard layouts or several USB phones itself, and drop any commit it makes redundant when
+rebasing `ios-control` onto the new tag.

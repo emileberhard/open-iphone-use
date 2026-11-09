@@ -13,6 +13,7 @@ from concurrent.futures import CancelledError
 import contextlib
 import functools
 import io
+import math
 import threading
 import time
 import uuid
@@ -41,7 +42,32 @@ IDLE = 'Idle: the screen stream restarts on the next request'
 # PyTCP's userspace stack is a process-global singleton: one USB tunnel, so one USB phone, per
 # server. Wi-Fi phones ride remoted's tunnels and are not limited.
 _usb_tunnel = threading.Lock()
-USB_BUSY = 'Another phone already uses this server\'s USB connection; remove it or connect this phone over Wi-Fi'
+USB_BUSY = 'Another phone holds this server\'s USB connection'
+USB_HANDOFF_SECONDS = 3
+_usb_holder = None
+_usb_holder_lock = threading.Lock()
+
+
+def hold_usb(backend):
+    global _usb_holder
+    with _usb_holder_lock: _usb_holder = backend
+
+
+def release_usb(backend):
+    global _usb_holder
+    with _usb_holder_lock:
+        if _usb_holder is backend: _usb_holder = None
+
+
+def claim_usb():
+    with _usb_holder_lock: holder = _usb_holder
+    if holder is None: return USB_BUSY
+    unused = holder.unused_seconds()
+    if unused < USB_HANDOFF_SECONDS:
+        return (f'{USB_BUSY}: {holder.device.name} used it {unused:.0f} s ago and hands it over after '
+                f'{USB_HANDOFF_SECONDS} s unused')
+    holder.hand_over_usb()
+    return f'Taking over the USB connection from {holder.device.name}, unused for {unused:.0f} s'
 
 
 
@@ -389,7 +415,7 @@ class CoreDeviceBackend:
         self.condition = threading.Condition()
         self.connection = None
         self.closed = False
-        self.error = 'Connecting to the iPhone over CoreDevice'
+        self.error = IDLE
         self.at = self.requested = self.pending = 0
         self.point = (.5, .5)
         self.running = self.task = None
@@ -400,7 +426,6 @@ class CoreDeviceBackend:
 
     async def start(self):
         self.wanted = asyncio.Event()
-        self.wanted.set()
         self.task = asyncio.create_task(self.run())
 
     def wake(self, timeout=15):
@@ -410,7 +435,13 @@ class CoreDeviceBackend:
             self.condition.wait_for(lambda: self.closed or (self.connection and self.is_fresh()), timeout)
 
     def idle(self):
-        return time.monotonic() - self.used >= self.idle_seconds
+        return self.unused_seconds() >= self.idle_seconds
+
+    def unused_seconds(self):
+        return 0 if self.running else time.monotonic() - self.used
+
+    def hand_over_usb(self):
+        self.used = -math.inf
 
     @property
     def label(self):
@@ -426,9 +457,11 @@ class CoreDeviceBackend:
     async def run(self):
         while not self.closed:
             await self.wanted.wait()
+            waiting_for_usb = False
             try:
                 async with self.opener(self.udid) as connection:
                     self.connection, self.error = connection, ''
+                    if getattr(connection, 'transport', None) == 'USB': hold_usb(self)
                     frames = connection.frames()
                     while not self.idle():
                         requested = time.monotonic()
@@ -438,12 +471,14 @@ class CoreDeviceBackend:
                 raise
             except Exception as error:  # Tunnel, pairing and service errors are reported, then retried.
                 self.error = str(error) or type(error).__name__
+                if self.error == USB_BUSY: self.error, waiting_for_usb = claim_usb(), True
             finally:
                 self.connection = None
+                release_usb(self)
             if self.idle():
                 self.wanted.clear()
             elif self.error != IDLE:
-                await asyncio.sleep(self.RETRY_SECONDS)
+                await asyncio.sleep(STILL_FRAME_SECONDS if waiting_for_usb else self.RETRY_SECONDS)
 
     def deliver(self, image, requested):
         # A screenshot requested before an input ended may predate its effect.
@@ -584,6 +619,7 @@ class CoreDeviceBackend:
         except Exception: pass  # Teardown is best effort; the loop stops regardless.
         self.loop.call_soon_threadsafe(self.loop.stop)
         self.thread.join(5)
+        if not self.thread.is_alive(): self.loop.close()
 
     async def shutdown(self):
         # Cancel inside the loop and await it so the tunnel unwinds before the loop stops.

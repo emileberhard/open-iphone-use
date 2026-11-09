@@ -5,6 +5,7 @@ import tempfile
 import threading
 import time
 import unittest
+from unittest import mock
 
 from PIL import Image
 
@@ -65,8 +66,7 @@ class CoreDeviceTests(unittest.TestCase):
         self.device = Device('phone', 'Phone', '00008110-TEST')
         self.device.backend = CoreDeviceBackend(self.device, self.device.udid, 60, opener(self.connection))
         self.addCleanup(self.device.backend.close)
-        deadline = time.monotonic() + 3
-        while not self.device.summary()['capture_active'] and time.monotonic() < deadline: time.sleep(.01)
+        self.device.backend.wake(3)
 
     def act(self, operation, **arguments):
         deadline = time.monotonic() + 3  # A failed action also invalidates earlier frames.
@@ -105,6 +105,9 @@ class CoreDeviceTests(unittest.TestCase):
         device = Device('idle', 'Idle', 'u-idle')
         device.backend = CoreDeviceBackend(device, device.udid, .3, counting)
         self.addCleanup(device.backend.close)
+        time.sleep(.2)
+        self.assertEqual((opens, device.backend.label), ([], coredevice.IDLE))
+        device.backend.wake()
         time.sleep(.8)
         self.assertEqual((len(opens), device.backend.label), (1, coredevice.IDLE))
         device.backend.wake()
@@ -167,8 +170,7 @@ class CoreDeviceTests(unittest.TestCase):
         other = Device('two', 'Two', 'other')
         other.backend = CoreDeviceBackend(other, 'other', 60, opener(FakeConnection()))
         self.addCleanup(other.backend.close)
-        deadline = time.monotonic() + 3
-        while not other.summary()['capture_active'] and time.monotonic() < deadline: time.sleep(.01)
+        other.backend.wake(3)
         self.assertTrue(other.summary()['capture_active'])
 
     def test_stop_releases_the_touch(self):
@@ -211,10 +213,66 @@ class FailingOpenerTests(unittest.TestCase):
         backend = CoreDeviceBackend(device, 'u1', 60, failing)
         backend.RETRY_SECONDS = 0
         self.addCleanup(backend.close)
+        backend.wake(0)
         self.assertTrue(attempts.wait(2))
         time.sleep(.05)
         self.assertEqual(backend.label, 'Not connected: Developer Mode is off')
         self.assertFalse(backend.request('pointer_tap', x=.5, y=.5)['ok'])
+
+
+class UsbHandoffTests(unittest.TestCase):
+    def setUp(self):
+        tunnel = threading.Lock()
+
+        @contextlib.asynccontextmanager
+        async def usb(udid):
+            if not tunnel.acquire(blocking=False): raise OSError(coredevice.USB_BUSY)
+            try:
+                connection = FakeConnection()
+                connection.transport = 'USB'
+                yield connection
+            finally:
+                tunnel.release()
+
+        self.phones = []
+        for name in ('iPad', 'iPhone'):
+            device = Device(name, name, 'u-' + name)
+            device.backend = CoreDeviceBackend(device, device.udid, 60, usb)
+            device.backend.RETRY_SECONDS = .05
+            self.addCleanup(device.backend.close)
+            self.phones.append(device.backend)
+
+    def test_an_unused_phone_hands_the_usb_connection_over(self):
+        ipad, iphone = self.phones
+        ipad.wake(3)
+        with mock.patch.object(coredevice, 'USB_HANDOFF_SECONDS', .3):
+            iphone.wake(3)
+        self.assertTrue(iphone.is_fresh())
+        self.assertEqual((iphone.label, ipad.label), ('Connected over USB', coredevice.IDLE))
+
+    def test_a_phone_in_use_keeps_the_usb_connection_and_names_itself(self):
+        ipad, iphone = self.phones
+        ipad.wake(3)
+        iphone.wake(.3)
+        self.assertEqual(ipad.label, 'Connected over USB')
+        self.assertFalse(iphone.is_fresh())
+        self.assertIn('iPad used it 0 s ago', iphone.label)
+
+    def test_a_running_action_keeps_the_usb_connection(self):
+        ipad, iphone = self.phones
+        ipad.wake(3)
+
+        async def slow(keys):
+            await asyncio.sleep(1)
+
+        ipad.connection.press = slow
+        typing = threading.Thread(target=ipad.request, args=('type_text',), kwargs=dict(text='a'))
+        with mock.patch.object(coredevice, 'USB_HANDOFF_SECONDS', .1):
+            typing.start()
+            time.sleep(.3)
+            iphone.wake(.5)
+            self.assertEqual(ipad.label, 'Connected over USB')
+        typing.join()
 
 
 class LiveStreamTests(unittest.TestCase):
