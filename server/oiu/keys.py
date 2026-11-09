@@ -21,7 +21,10 @@ def stroke(character):
 
 
 US = {character: (stroke(character),) for character in map(chr, range(32, 127))} | {
-    character: (stroke(character),) for character in '\n\r\t\b'}
+    character: (stroke(character),) for character in '\n\r\t\b'} | {
+    'å': ((4, 0x04),), 'Å': ((6, 0x04),), '€': ((6, 0x1F),), '£': ((4, 0x20),), '§': ((4, 0x23),), '°': ((6, 0x25),),
+    'ä': ((4, 0x18), (0, 0x04)), 'Ä': ((4, 0x18), (2, 0x04)), 'ö': ((4, 0x18), (0, 0x12)), 'Ö': ((4, 0x18), (2, 0x12)),
+    'ü': ((4, 0x18), (0, 0x18)), 'Ü': ((4, 0x18), (2, 0x18)), 'é': ((4, 0x08), (0, 0x08)), 'É': ((4, 0x08), (2, 0x08))}
 SWEDISH = {character: keys for character, keys in US.items() if character.isalnum() or character in ' \n\r\t\b'} | {
     character: ((modifier, usage),) for character, (modifier, usage) in {
         '!': (2, 0x1E), '"': (2, 0x1F), '#': (2, 0x20), '$': (4, 0x21), '%': (2, 0x22), '&': (2, 0x23),

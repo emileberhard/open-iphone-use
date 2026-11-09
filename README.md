@@ -55,8 +55,11 @@ open-iphone-use new
 `new` adds the connected phone; with several phones it asks which one, or takes
 `--udid UDID` (`open-iphone-use candidates` lists them). You can also select **Add phone** in
 the Web UI. A phone's screen streams only while it is in use: after five idle minutes
-(`serve --idle-minutes`) the stream stops, and the next request restarts it in about a second. Typing assumes the US hardware keyboard layout; for a phone set to Swedish in
-Settings > General > Keyboard > Hardware Keyboard, add it with `--keyboard-layout sv`.
+(`serve --idle-minutes`) the stream stops, and the next request restarts it in about a second.
+Typing assumes the US hardware keyboard layout; for a phone set to Swedish in Settings > General >
+Keyboard > Hardware Keyboard, add it with `--keyboard-layout sv`. iOS reads keys through the
+layout of whichever keyboard is active, and third-party keyboards always use U.S., so a phone with
+several keyboards types predictably only when every language there is set to U.S.
 
 **Watch it live.** The Web UI shows each phone's screen live; click the screen to tap. It is
 loopback-only and needs no token, so any local process can operate it: do not expose it

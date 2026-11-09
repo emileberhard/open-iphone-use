@@ -31,7 +31,11 @@ connects and crops every frame to it.
 
 The virtual keyboard sends HID usages, which iOS reads through the hardware keyboard layout
 chosen on the device. Each phone now records its layout (`us` by default, or `sv`), set when it
-is added through the CLI, HTTP API or MCP. `type_text`, `send_key` and `ensure_session`'s app
+is added through the CLI, HTTP API or MCP. iOS applies the layout of whichever keyboard is active,
+and third-party keyboards always get U.S. whatever the settings say (measured on an iPhone 14 Plus
+with the Mumla keyboard, iOS 27.0.1), so agent devices set every language to U.S. The U.S. table
+types å, ä, ö, ü, é, their capitals, €, £, § and ° through the layout's Option keys and
+dead keys, measured on that phone. `type_text`, `send_key` and `ensure_session`'s app
 launch encode through that layout, including dead-key compositions such as `é` and `~`, and
 reject text the layout cannot type before pressing any key. The Swedish table was measured on
 the device for every key and modifier combination.

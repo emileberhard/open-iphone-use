@@ -121,10 +121,15 @@ class CoreDeviceTests(unittest.TestCase):
         self.assertEqual(self.connection.calls, [])
 
     def test_text_is_validated_before_any_key(self):
-        self.assertFalse(self.act('type_text', text='aé')['ok'])
+        self.assertFalse(self.act('type_text', text='aæ')['ok'])
         self.assertEqual(self.connection.calls, [])
         self.assertTrue(self.act('type_text', text='aB')['ok'])
         self.assertEqual(self.connection.calls, [('press', (0x04,)), ('press', (0xE1, 0x05))])
+
+    def test_us_layout_composes_swedish_letters_with_option(self):
+        self.assertTrue(self.act('type_text', text='åÄé')['ok'])
+        self.assertEqual(self.connection.calls, [('press', (0xE2, 0x04)), ('press', (0xE2, 0x18)), ('press', (0xE1, 0x04)),
+                                                 ('press', (0xE2, 0x08)), ('press', (0x08,))])
 
     def test_swedish_layout_types_its_own_keys(self):
         self.device.keyboard_layout = 'sv'
