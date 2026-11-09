@@ -127,5 +127,10 @@ iPad Pro 11-inch (3rd generation, iPad13,4), iPadOS 27.0.1, Xcode 27.2, USB:
 - Streaming, the server used about 48% of one CPU core; with the stream stopped after its idle
   time, 0%. A snapshot or an action restarted it and returned a live frame after 1.2 s.
 
+iPhone 14 Plus, iOS 27.0.1, Xcode 27.2, USB, 2026-11-09:
+
+- A 0.8 s `pointer_hold` on a RemoteCoder chat message opened its context menu;
+  a tap outside dismissed it, as observed in the returned screenshots.
+
 Not checked: other devices or iOS versions, long sessions, unlocked use over Wi-Fi, multi-touch,
 apps that use the camera, and the screenshot fallback's CoreDevice capture path.
