@@ -100,10 +100,10 @@ class CoreDeviceTests(unittest.TestCase):
         self.assertEqual(len([call for call in self.connection.calls if call[0] == 'drag']), 1)
 
     def test_cancelled_hold_releases_the_same_hid_contact(self):
-        from pymobiledevice3.remote.core_device.hid_service import UniversalHidService
+        from pymobiledevice3.remote.core_device.hid_service import UniversalHIDServiceService
 
         class HID:
-            multi_drag = UniversalHidService.multi_drag
+            multi_drag = UniversalHIDServiceService.multi_drag
 
             def __init__(self):
                 self.reports = []
