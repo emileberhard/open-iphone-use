@@ -95,8 +95,8 @@ async function refresh() {
       t.root.querySelector('.status').textContent = `${d.control_status}${d.capture_active ? ` • ${d.age_ms} ms` : ''}`;
       t.root.querySelector('.placeholder').hidden = !!d.frame_id;
       const img = t.root.querySelector('img');
-      if (d.frame_id && img.hidden) { img.src = `/api/devices/${d.device_id}/stream`; img.hidden = false; }
-      if (!d.frame_id && !img.hidden) { img.hidden = true; img.removeAttribute('src'); }
+      if (!img.getAttribute('src')) img.src = `/api/devices/${d.device_id}/stream`;
+      img.hidden = !d.frame_id;
     }
     $('error').textContent = '';
   } catch (error) { failure(error); }

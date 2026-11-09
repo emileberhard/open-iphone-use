@@ -31,7 +31,8 @@ The server opens Xcode's CoreDevice services on the phone through an RSD tunnel
   enable it.
 - One USB phone streams at a time per server process: the userspace network stack is
   process-global. A request for another USB phone takes the connection over once the holder has
-  been unused for three seconds. Phones on Wi-Fi use remoted's tunnels and can be added alongside it.
+  gone three seconds without a request, with no action running and no live view open. Phones on
+  Wi-Fi use remoted's tunnels and can be added alongside it.
 - The stream does not start while a foreground app uses the camera or microphone.
 
 ## Use

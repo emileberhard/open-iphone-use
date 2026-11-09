@@ -35,7 +35,7 @@ is added through the CLI, HTTP API or MCP. iOS applies the layout of whichever k
 and third-party keyboards always get U.S. whatever the settings say (measured on an iPhone 14 Plus
 with the Mumla keyboard, iOS 27.0.1), so agent devices set every language to U.S. The U.S. table
 types å, ä, ö, ü, é, their capitals, €, £, § and ° through the layout's Option keys and
-dead keys, measured on that phone. `type_text`, `send_key` and `ensure_session`'s app
+dead keys, all measured on that phone except Ü, which uses ü's dead key with Shift. `type_text`, `send_key` and `ensure_session`'s app
 launch encode through that layout, including dead-key compositions such as `é` and `~`, and
 reject text the layout cannot type before pressing any key. The Swedish table was measured on
 the device for every key and modifier combination.
@@ -53,12 +53,13 @@ The userspace network stack allows one USB tunnel per process, and every phone u
 when the server started, so the first registered phone held USB and the others failed with "No
 frame received" until it was removed. Phones now connect on their first request, and a phone
 asked for while another holds USB takes the connection over once the holder has gone three
-seconds without a request, with no action running and no live view open. An ios-step call keeps
-its phone in use from its first snapshot to its last, so three seconds separates a phone between
-an agent's calls from one in the middle of a call, and one agent switching between its iPhone and
-iPad waits at most that long. The phone that gave up USB reconnects on its next request in about
-1.2 s. While it waits, a phone's status names the holder and how long ago it was used, and it
-retries every half second.
+seconds without a request, with no action running and no live view open. The requests of one
+ios-step call follow each other well inside three seconds, so the rule tells a phone between an
+agent's calls from one in the middle of a call; nothing holds a lease across a call, though. A
+switch waits for the rest of the holder's three seconds, then for its teardown and the new
+connection, and the phone that gave up USB reconnects on its next request in about 1.2 s. While
+it waits, a phone's status names the holder and how long ago it was used, and it retries every
+half second.
 
 None of these changes has been offered upstream.
 

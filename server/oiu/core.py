@@ -86,6 +86,11 @@ class Device:
             self.history.append((self.frame_id, self.at))
             return {"frameID": self.frame_id}
 
+    def expire_frames(self):
+        with self.lock:
+            self.active = False
+            self.history.clear()
+
     def stop(self):
         with self.lock:
             self.epoch += 1

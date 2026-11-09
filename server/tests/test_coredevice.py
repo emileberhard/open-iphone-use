@@ -173,6 +173,13 @@ class CoreDeviceTests(unittest.TestCase):
         other.backend.wake(3)
         self.assertTrue(other.summary()['capture_active'])
 
+    def test_a_closed_phone_refuses_work_without_touching_its_loop(self):
+        backend = self.device.backend
+        backend.close()
+        backend.wake(0)
+        with self.assertRaisesRegex(ValueError, 'Device removed'):
+            backend.call(backend.perform(None, 'pointer_move', dict(x=.5, y=.5)))
+
     def test_stop_releases_the_touch(self):
         self.act('pointer_tap', x=.5, y=.5)
         self.device.action('stop_control', {})
@@ -249,6 +256,14 @@ class UsbHandoffTests(unittest.TestCase):
             iphone.wake(3)
         self.assertTrue(iphone.is_fresh())
         self.assertEqual((iphone.label, ipad.label), ('Connected over USB', coredevice.IDLE))
+        self.assertFalse(ipad.is_fresh() or ipad.device.summary()['capture_active'] or ipad.device.history)
+
+    def test_a_request_during_the_handoff_check_keeps_the_usb_connection(self):
+        ipad, _ = self.phones
+        with mock.patch.object(coredevice, 'USB_HANDOFF_SECONDS', .1):
+            time.sleep(.2)
+            ipad.touch()
+            self.assertFalse(ipad.hand_over_usb())
 
     def test_a_phone_in_use_keeps_the_usb_connection_and_names_itself(self):
         ipad, iphone = self.phones

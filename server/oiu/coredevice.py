@@ -63,10 +63,9 @@ def claim_usb():
     with _usb_holder_lock: holder = _usb_holder
     if holder is None: return USB_BUSY
     unused = holder.unused_seconds()
-    if unused < USB_HANDOFF_SECONDS:
+    if not holder.hand_over_usb():
         return (f'{USB_BUSY}: {holder.device.name} used it {unused:.0f} s ago and hands it over after '
                 f'{USB_HANDOFF_SECONDS} s unused')
-    holder.hand_over_usb()
     return f'Taking over the USB connection from {holder.device.name}, unused for {unused:.0f} s'
 
 
@@ -412,6 +411,8 @@ class CoreDeviceBackend:
     def __init__(self, device, udid, idle_seconds, opener=open_connection):
         self.device, self.udid, self.opener, self.idle_seconds = device, udid, opener, idle_seconds
         self.used = time.monotonic()
+        self.use_lock = threading.Lock()
+        self.requests = 0
         self.condition = threading.Condition()
         self.connection = None
         self.closed = False
@@ -429,19 +430,40 @@ class CoreDeviceBackend:
         self.task = asyncio.create_task(self.run())
 
     def wake(self, timeout=15):
-        self.used = time.monotonic()
-        self.loop.call_soon_threadsafe(self.wanted.set)
+        self.touch()
         with self.condition:
+            if self.closed: return
+            self.loop.call_soon_threadsafe(self.wanted.set)
             self.condition.wait_for(lambda: self.closed or (self.connection and self.is_fresh()), timeout)
 
     def idle(self):
         return self.unused_seconds() >= self.idle_seconds
 
     def unused_seconds(self):
-        return 0 if self.running else time.monotonic() - self.used
+        return 0 if self.requests else time.monotonic() - self.used
+
+    @contextlib.contextmanager
+    def in_use(self):
+        with self.use_lock: self.requests += 1
+        try:
+            yield
+        finally:
+            with self.use_lock:
+                self.requests -= 1
+                self.used = time.monotonic()
+
+    def touch(self):
+        with self.use_lock: self.used = time.monotonic()
 
     def hand_over_usb(self):
-        self.used = -math.inf
+        with self.use_lock:
+            if self.unused_seconds() < USB_HANDOFF_SECONDS: return False
+            self.used = -math.inf
+            return True
+
+    def expire_frames(self):
+        with self.condition: self.at = 0
+        self.device.expire_frames()
 
     @property
     def label(self):
@@ -461,6 +483,7 @@ class CoreDeviceBackend:
             try:
                 async with self.opener(self.udid) as connection:
                     self.connection, self.error = connection, ''
+                    self.touch()
                     if getattr(connection, 'transport', None) == 'USB': hold_usb(self)
                     frames = connection.frames()
                     while not self.idle():
@@ -475,6 +498,7 @@ class CoreDeviceBackend:
             finally:
                 self.connection = None
                 release_usb(self)
+                self.expire_frames()
             if self.idle():
                 self.wanted.clear()
             elif self.error != IDLE:
@@ -499,8 +523,15 @@ class CoreDeviceBackend:
                 raise OSError('No CoreDevice screenshot arrived after the input ended')
             if self.closed: raise ValueError('Device removed or control closed')
 
+    def schedule(self, coroutine):
+        with self.condition:
+            if self.closed:
+                coroutine.close()
+                raise ValueError('Device removed or control closed')
+            return asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+
     def call(self, coroutine, timeout=60):
-        future = asyncio.run_coroutine_threadsafe(coroutine, self.loop)
+        future = self.schedule(coroutine)
         self.running = future
         try: return future.result(timeout)
         except TimeoutError:
@@ -582,31 +613,32 @@ class CoreDeviceBackend:
                 udid=self.udid, connected=connection is not None,
                 hid_available=bool(connection and connection.hid_available), captureActive=self.is_fresh(),
                 sharing_active=self.is_fresh(), error=self.error))
-        try:
-            message = self.call(self.perform(self.connected(), operation, args))
-            ended = time.monotonic()
-            if operation in ('swipe', 'advance_feed', 'scroll'): time.sleep(.2)
-            self.wait_frame(ended + self.connection_latency)
-            with self.device.lock:
-                image, frame_id, frame_at = self.device.jpeg, self.device.frame_id, self.device.at
-            width, height = vision.dimensions(image)
-            result = dict(ok=True, message=message or 'Input completed. Inspect the returned screen to verify the UI outcome.',
-                          inputEndedAt=ended, commandID=str(uuid.uuid4()),
-                          frame=dict(frameID=frame_id, captureActive=self.is_fresh(),
-                                     ageMilliseconds=int((time.monotonic() - frame_at) * 1000), mimeType='image/jpeg',
-                                     width=width, height=height, base64=base64.b64encode(image).decode()))
-            if operation == 'pointer_tap':
-                result.update(target=list(self.point))
-            return result
-        except (ValueError, OSError) as error:
-            return dict(ok=False, message=str(error))
+        with self.in_use():
+            try:
+                message = self.call(self.perform(self.connected(), operation, args))
+                ended = time.monotonic()
+                if operation in ('swipe', 'advance_feed', 'scroll'): time.sleep(.2)
+                self.wait_frame(ended + self.connection_latency)
+                with self.device.lock:
+                    image, frame_id, frame_at = self.device.jpeg, self.device.frame_id, self.device.at
+                width, height = vision.dimensions(image)
+                result = dict(ok=True, message=message or 'Input completed. Inspect the returned screen to verify the UI outcome.',
+                              inputEndedAt=ended, commandID=str(uuid.uuid4()),
+                              frame=dict(frameID=frame_id, captureActive=self.is_fresh(),
+                                         ageMilliseconds=int((time.monotonic() - frame_at) * 1000), mimeType='image/jpeg',
+                                         width=width, height=height, base64=base64.b64encode(image).decode()))
+                if operation == 'pointer_tap':
+                    result.update(target=list(self.point))
+                return result
+            except (ValueError, OSError) as error:
+                return dict(ok=False, message=str(error))
 
     def stop_capture(self):
         running = self.running
         if running: running.cancel()
         connection = self.connection
         if connection is not None and connection.hid is not None:
-            try: asyncio.run_coroutine_threadsafe(connection.release(units(self.point[0]), units(self.point[1])), self.loop).result(3)
+            try: self.schedule(connection.release(units(self.point[0]), units(self.point[1]))).result(3)
             except Exception: pass  # Best effort: the session may already be gone.
         return dict(ok=True, message='Input canceled and released for this phone')
 
