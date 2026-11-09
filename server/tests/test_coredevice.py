@@ -89,6 +89,16 @@ class CoreDeviceTests(unittest.TestCase):
         self.assertEqual(result['frame']['frameID'], self.device.frame_id)
         self.assertTrue(self.act('pointer_tap', x=.5, y=.5)['ok'])  # The returned frame is valid next.
 
+    def test_hold_uses_the_exact_point_and_rejects_invalid_durations(self):
+        result = self.act('pointer_hold', x=.25, y=.75, duration=.8)
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(self.connection.calls, [('drag', round(.25 * UNIT), round(.75 * UNIT), round(.25 * UNIT), round(.75 * UNIT), .8)])
+        self.assertEqual(result['target'], [.25, .75])
+        for duration in (0, 10.1, float('nan'), True):
+            result = self.act('pointer_hold', x=.25, y=.75, duration=duration)
+            self.assertFalse(result['ok'], result)
+        self.assertEqual(len([call for call in self.connection.calls if call[0] == 'drag']), 1)
+
     def test_landscape_frames_turn_onto_the_portrait_touch_panel(self):
         corners = dict(top_left=(0, 0), top_right=(UNIT, 0), bottom_left=(0, UNIT), bottom_right=(UNIT, UNIT))
         for name, (x, y) in corners.items():

@@ -580,6 +580,14 @@ class CoreDeviceBackend:
             if operation == 'pointer_tap': self.point = (fraction(args['x']), fraction(args['y']))
             await connection.tap(units(self.point[0]), units(self.point[1]))
             return 'Touched (%s,%s)' % self.point
+        if operation == 'pointer_hold':
+            duration = args['duration']
+            if type(duration) not in (int, float) or not .1 <= duration <= 10:
+                raise ValueError('Hold duration must be 0.1–10 seconds')
+            self.point = (fraction(args['x']), fraction(args['y']))
+            x, y = map(units, self.point)
+            await connection.drag(x, y, x, y, duration)
+            return 'Held (%s,%s) for %s seconds' % (*self.point, duration)
         if operation == 'type_text':
             text = args['text']
             if not isinstance(text, str) or len(text) > 500: raise ValueError('Text must contain at most 500 characters')
@@ -635,7 +643,7 @@ class CoreDeviceBackend:
                               frame=dict(frameID=frame_id, captureActive=self.is_fresh(),
                                          ageMilliseconds=int((time.monotonic() - frame_at) * 1000), mimeType='image/jpeg',
                                          width=width, height=height, base64=base64.b64encode(image).decode()))
-                if operation == 'pointer_tap':
+                if operation in ('pointer_tap', 'pointer_hold'):
                     result.update(target=list(self.point))
                 return result
             except (ValueError, OSError) as error:

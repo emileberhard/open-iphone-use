@@ -15,7 +15,7 @@ from .keys import LAYOUTS
 PARAMETERS = {
     "click": {}, "scroll": {"dy": "integer"},
     "type_text": {"text": "string"}, "send_key": {"key": "string"},
-    "pointer_tap": {"x": "number", "y": "number"}, "pointer_move": {"x": "number", "y": "number"},
+    "pointer_tap": {"x": "number", "y": "number"}, "pointer_hold": {"x": "number", "y": "number", "duration": "number"}, "pointer_move": {"x": "number", "y": "number"},
     "swipe": {"profile": "string"}, "advance_feed": {"dy": "integer"},
     "ensure_session": {"return_app": "string"},
 }
@@ -30,6 +30,7 @@ DESCRIPTIONS = {
     'stop_control': 'Cancel the running action on the selected phone and release any held touch or key.',
     'ensure_session': 'Check that input is available for the selected phone. Optional return_app opens that app through Spotlight.',
     'pointer_tap': 'Touch the exact point given. Check the returned screen for the UI outcome.',
+    'pointer_hold': 'Hold the exact point for duration seconds (0.1–10). Check the returned screen for the UI outcome.',
     'pointer_move': 'Set the point that click touches; nothing is touched.',
     'click': 'Touch the point set by pointer_move.',
     'type_text': 'Type text with the phone\'s keyboard focus through its keyboard layout, at most 500 characters.',
@@ -50,7 +51,7 @@ def tools():
         if name in ACTIONS:
             props["expected_frame_id"] = {"type": "string", "description": "ID of a screenshot from this device after its last input completed, at most 120 seconds old. The frameID that an action's own result returns is valid for the next action, so a new get_latest_screenshot per action is not needed; a frame captured before the last input completed is rejected."}
             props.update({key: {"type": kind} for key, kind in PARAMETERS.get(name, {}).items()})
-        if name in ('pointer_tap', 'pointer_move'):
+        if name in ('pointer_tap', 'pointer_hold', 'pointer_move'):
             props['x']['description'] = FRACTION.format(axis='x', size='width')
             props['y']['description'] = FRACTION.format(axis='y', size='height')
         optional = {'expected_frame_id'} if name in PREPARATION else set()
