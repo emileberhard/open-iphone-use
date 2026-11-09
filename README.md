@@ -119,7 +119,7 @@ How the tools work:
 
 - One USB phone streams at a time; more phones can join over Wi-Fi. A USB phone hands the
   connection to another USB phone that is asked for once it has gone three seconds without a
-  request, with no action running and no live view open.
+  request, with no action or screenshot in progress and no live view open.
 - Tested on an iPhone 13 (iOS 27.0, USB and Wi-Fi) and an iPhone SE (iOS 27.0.1, USB), also
   both at once.
   Multi-touch and long sessions are not tested yet.

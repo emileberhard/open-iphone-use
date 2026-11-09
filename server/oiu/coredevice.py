@@ -430,8 +430,7 @@ class CoreDeviceBackend:
         self.task = asyncio.create_task(self.run())
 
     def wake(self, timeout=15):
-        self.touch()
-        with self.condition:
+        with self.in_use(), self.condition:
             if self.closed: return
             self.loop.call_soon_threadsafe(self.wanted.set)
             self.condition.wait_for(lambda: self.closed or (self.connection and self.is_fresh()), timeout)
@@ -461,6 +460,17 @@ class CoreDeviceBackend:
             self.used = -math.inf
             return True
 
+    def retire(self):
+        with self.use_lock:
+            if self.unused_seconds() < self.idle_seconds: return False
+            self.connection, self.error = None, IDLE
+            return True
+
+    def withdraw(self):
+        with self.use_lock: self.connection = None
+        release_usb(self)
+        self.expire_frames()
+
     def expire_frames(self):
         with self.condition: self.at = 0
         self.device.expire_frames()
@@ -482,27 +492,25 @@ class CoreDeviceBackend:
             waiting_for_usb = False
             try:
                 async with self.opener(self.udid) as connection:
-                    self.connection, self.error = connection, ''
-                    self.touch()
-                    if getattr(connection, 'transport', None) == 'USB': hold_usb(self)
-                    frames = connection.frames()
-                    while not self.idle():
-                        requested = time.monotonic()
-                        self.deliver(await anext(frames), requested)
+                    try:
+                        self.connection, self.error = connection, ''
+                        if getattr(connection, 'transport', None) == 'USB': hold_usb(self)
+                        frames = connection.frames()
+                        while not self.retire():
+                            requested = time.monotonic()
+                            self.deliver(await anext(frames), requested)
+                    finally:
+                        self.withdraw()
                 self.error = IDLE
             except asyncio.CancelledError:
                 raise
             except Exception as error:  # Tunnel, pairing and service errors are reported, then retried.
                 self.error = str(error) or type(error).__name__
                 if self.error == USB_BUSY: self.error, waiting_for_usb = claim_usb(), True
-            finally:
-                self.connection = None
-                release_usb(self)
-                self.expire_frames()
+            if self.error != IDLE and not self.idle():
+                await asyncio.sleep(STILL_FRAME_SECONDS if waiting_for_usb else self.RETRY_SECONDS)
             if self.idle():
                 self.wanted.clear()
-            elif self.error != IDLE:
-                await asyncio.sleep(STILL_FRAME_SECONDS if waiting_for_usb else self.RETRY_SECONDS)
 
     def deliver(self, image, requested):
         # A screenshot requested before an input ended may predate its effect.

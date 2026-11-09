@@ -53,13 +53,13 @@ The userspace network stack allows one USB tunnel per process, and every phone u
 when the server started, so the first registered phone held USB and the others failed with "No
 frame received" until it was removed. Phones now connect on their first request, and a phone
 asked for while another holds USB takes the connection over once the holder has gone three
-seconds without a request, with no action running and no live view open. The requests of one
-ios-step call follow each other well inside three seconds, so the rule tells a phone between an
-agent's calls from one in the middle of a call; nothing holds a lease across a call, though. A
-switch waits for the rest of the holder's three seconds, then for its teardown and the new
-connection, and the phone that gave up USB reconnects on its next request in about 1.2 s. While
-it waits, a phone's status names the holder and how long ago it was used, and it retries every
-half second.
+seconds without a request, with no action or screenshot in progress and no live view open. The
+requests of one ios-step call follow each other well inside three seconds, so the rule tells a
+phone between an agent's calls from one in the middle of a call; nothing holds a lease across a
+call, though. A switch waits for the rest of the holder's three seconds, then for its teardown
+and the new connection, and the phone that gave up USB reconnects on its next request in about
+1.2 s. While it waits, a phone's status names the holder and how long ago it was used, and it
+retries every half second.
 
 None of these changes has been offered upstream.
 

@@ -114,6 +114,48 @@ class CoreDeviceTests(unittest.TestCase):
         self.assertEqual(len(opens), 2)
         self.assertTrue(device.backend.is_fresh())
 
+    def test_a_closing_stream_takes_no_input_and_wakes_after_it_closes(self):
+        connection, closing, gate = FakeConnection(), threading.Event(), threading.Event()
+        @contextlib.asynccontextmanager
+        async def slow_close(udid):
+            try: yield connection
+            finally:
+                closing.set()
+                while not gate.is_set(): await asyncio.sleep(.01)
+        device = Device('closing', 'Closing', 'u-closing')
+        device.backend = backend = CoreDeviceBackend(device, device.udid, .3, slow_close)
+        self.addCleanup(gate.set)
+        self.addCleanup(backend.close)
+        backend.wake(3)
+        self.assertTrue(closing.wait(3))
+        self.assertFalse(backend.request('type_text', text='a')['ok'])
+        backend.wake(.2)
+        self.assertEqual((backend.connection, backend.is_fresh(), list(device.history), connection.calls), (None, False, [], []))
+        gate.set()
+        backend.wake(3)
+        self.assertTrue(backend.is_fresh())
+
+    def test_failed_reconnects_do_not_keep_an_unused_phone_awake(self):
+        opens = []
+        class Broken(FakeConnection):
+            async def frames(self):
+                raise OSError('stream failed')
+                yield
+        @contextlib.asynccontextmanager
+        async def broken(udid):
+            opens.append(udid)
+            yield Broken()
+        device = Device('broken', 'Broken', 'u-broken')
+        device.backend = backend = CoreDeviceBackend(device, device.udid, .1, broken)
+        backend.RETRY_SECONDS = .025
+        self.addCleanup(backend.close)
+        backend.wake(.1)
+        time.sleep(.4)
+        settled = len(opens)
+        time.sleep(.3)
+        self.assertEqual(len(opens), settled)
+        self.assertIn('stream failed', backend.label)
+
     def test_click_uses_the_last_pointer_target(self):
         self.act('pointer_move', x=.1, y=.2)
         self.act('click')
@@ -264,6 +306,23 @@ class UsbHandoffTests(unittest.TestCase):
             time.sleep(.2)
             ipad.touch()
             self.assertFalse(ipad.hand_over_usb())
+
+    def test_a_phone_waiting_for_its_first_frame_keeps_the_usb_connection(self):
+        ipad, _ = self.phones
+        gate = threading.Event()
+        frames = FakeConnection.frames
+        async def gated(connection):
+            while not gate.is_set(): await asyncio.sleep(.01)
+            async for frame in frames(connection): yield frame
+        self.addCleanup(gate.set)
+        with mock.patch.object(FakeConnection, 'frames', gated), mock.patch.object(coredevice, 'USB_HANDOFF_SECONDS', .1):
+            waking = threading.Thread(target=ipad.wake, args=(3,))
+            waking.start()
+            time.sleep(.3)
+            self.assertFalse(ipad.hand_over_usb())
+            gate.set()
+            waking.join()
+        self.assertTrue(ipad.is_fresh())
 
     def test_a_phone_in_use_keeps_the_usb_connection_and_names_itself(self):
         ipad, iphone = self.phones
