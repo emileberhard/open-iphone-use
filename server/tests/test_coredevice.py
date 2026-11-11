@@ -99,6 +99,16 @@ class CoreDeviceTests(unittest.TestCase):
             self.assertFalse(result['ok'], result)
         self.assertEqual(len([call for call in self.connection.calls if call[0] == 'drag']), 1)
 
+    def test_drag_moves_between_exact_points_and_rejects_invalid_durations(self):
+        result = self.act('pointer_drag', x=.25, y=.75, to_x=.5, to_y=1, duration=.3)
+        self.assertTrue(result['ok'], result)
+        self.assertEqual(self.connection.calls, [('drag', round(.25 * UNIT), round(.75 * UNIT), round(.5 * UNIT), UNIT, .3)])
+        self.assertEqual(result['target'], [.5, 1.0])
+        for duration in (0, 10.1, float('nan'), True):
+            result = self.act('pointer_drag', x=.25, y=.75, to_x=.5, to_y=1, duration=duration)
+            self.assertFalse(result['ok'], result)
+        self.assertEqual(len([call for call in self.connection.calls if call[0] == 'drag']), 1)
+
     def test_cancelled_hold_releases_the_same_hid_contact(self):
         from pymobiledevice3.remote.core_device.hid_service import UniversalHIDServiceService
 

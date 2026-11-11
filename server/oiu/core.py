@@ -18,8 +18,8 @@ FRAME_MAX_AGE = 120.0
 FRAME_HISTORY_LIMIT = 8192
 MAX_FRAME = 4 * 1024 * 1024
 PREPARATION = {"ensure_session"}
-ACTIONS = {"ensure_session", "pointer_tap", "pointer_hold", "pointer_move", "click", "type_text", "send_key", "scroll",
-           "swipe", "advance_feed"}
+ACTIONS = {"ensure_session", "pointer_tap", "pointer_hold", "pointer_drag", "pointer_move", "click", "type_text", "send_key",
+           "scroll", "swipe", "advance_feed"}
 
 
 class Unavailable:

@@ -588,6 +588,14 @@ class CoreDeviceBackend:
             x, y = map(units, self.point)
             await connection.drag(x, y, x, y, duration)
             return 'Held (%s,%s) for %s seconds' % (*self.point, duration)
+        if operation == 'pointer_drag':
+            duration = args['duration']
+            if type(duration) not in (int, float) or not .1 <= duration <= 10:
+                raise ValueError('Drag duration must be 0.1–10 seconds')
+            start = (fraction(args['x']), fraction(args['y']))
+            self.point = (fraction(args['to_x']), fraction(args['to_y']))
+            await connection.drag(*map(units, start + self.point), duration)
+            return 'Dragged (%s,%s) to (%s,%s) in %s seconds' % (*start, *self.point, duration)
         if operation == 'type_text':
             text = args['text']
             if not isinstance(text, str) or len(text) > 500: raise ValueError('Text must contain at most 500 characters')
@@ -633,7 +641,7 @@ class CoreDeviceBackend:
             try:
                 message = self.call(self.perform(self.connected(), operation, args))
                 ended = time.monotonic()
-                if operation in ('swipe', 'advance_feed', 'scroll'): time.sleep(.2)
+                if operation in ('swipe', 'advance_feed', 'scroll', 'pointer_drag'): time.sleep(.2)
                 self.wait_frame(ended + self.connection_latency)
                 with self.device.lock:
                     image, frame_id, frame_at = self.device.jpeg, self.device.frame_id, self.device.at
@@ -643,7 +651,7 @@ class CoreDeviceBackend:
                               frame=dict(frameID=frame_id, captureActive=self.is_fresh(),
                                          ageMilliseconds=int((time.monotonic() - frame_at) * 1000), mimeType='image/jpeg',
                                          width=width, height=height, base64=base64.b64encode(image).decode()))
-                if operation in ('pointer_tap', 'pointer_hold'):
+                if operation in ('pointer_tap', 'pointer_hold', 'pointer_drag'):
                     result.update(target=list(self.point))
                 return result
             except (ValueError, OSError) as error:

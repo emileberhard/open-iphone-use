@@ -101,8 +101,8 @@ Cursor, OpenCode, Command Code). Use an image-capable agent. The tools:
 
 - **Setup and status:** `list_candidates`, `create_device` (with `udid` and optional `keyboard_layout`), `remove_device`,
   `list_devices`, `get_device_status`, `get_latest_screenshot`, `stop_control`.
-- **Input:** `ensure_session`, `pointer_tap`, `type_text`, `send_key`, `swipe`, `scroll`,
-  `advance_feed`. `send_key` also takes `home`, `lock`, `volume_up`, `volume_down`, `mute` and
+- **Input:** `ensure_session`, `pointer_tap`, `pointer_hold`, `pointer_drag`, `type_text`, `send_key`,
+  `swipe`, `scroll`, `advance_feed`. `send_key` also takes `home`, `lock`, `volume_up`, `volume_down`, `mute` and
   `siri`.
 
 How the tools work:

@@ -16,6 +16,7 @@ PARAMETERS = {
     "click": {}, "scroll": {"dy": "integer"},
     "type_text": {"text": "string"}, "send_key": {"key": "string"},
     "pointer_tap": {"x": "number", "y": "number"}, "pointer_hold": {"x": "number", "y": "number", "duration": "number"}, "pointer_move": {"x": "number", "y": "number"},
+    "pointer_drag": {"x": "number", "y": "number", "to_x": "number", "to_y": "number", "duration": "number"},
     "swipe": {"profile": "string"}, "advance_feed": {"dy": "integer"},
     "ensure_session": {"return_app": "string"},
 }
@@ -31,6 +32,7 @@ DESCRIPTIONS = {
     'ensure_session': 'Check that input is available for the selected phone. Optional return_app opens that app through Spotlight.',
     'pointer_tap': 'Touch the exact point given. Check the returned screen for the UI outcome.',
     'pointer_hold': 'Hold the exact point for duration seconds (0.1–10). Check the returned screen for the UI outcome.',
+    'pointer_drag': 'Touch the exact point, drag to (to_x, to_y) in duration seconds (0.1–10) and release. Check the returned screen for the UI outcome.',
     'pointer_move': 'Set the point that click touches; nothing is touched.',
     'click': 'Touch the point set by pointer_move.',
     'type_text': 'Type text with the phone\'s keyboard focus through its keyboard layout, at most 500 characters.',
@@ -51,16 +53,19 @@ def tools():
         if name in ACTIONS:
             props["expected_frame_id"] = {"type": "string", "description": "ID of a screenshot from this device after its last input completed, at most 120 seconds old. The frameID that an action's own result returns is valid for the next action, so a new get_latest_screenshot per action is not needed; a frame captured before the last input completed is rejected."}
             props.update({key: {"type": kind} for key, kind in PARAMETERS.get(name, {}).items()})
-        if name in ('pointer_tap', 'pointer_hold', 'pointer_move'):
+        if name in ('pointer_tap', 'pointer_hold', 'pointer_drag', 'pointer_move'):
             props['x']['description'] = FRACTION.format(axis='x', size='width')
             props['y']['description'] = FRACTION.format(axis='y', size='height')
+        if name == 'pointer_drag':
+            props['to_x']['description'] = FRACTION.format(axis='to_x', size='width')
+            props['to_y']['description'] = FRACTION.format(axis='to_y', size='height')
         optional = {'expected_frame_id'} if name in PREPARATION else set()
         if name == 'ensure_session': optional.add('return_app')
         if name == 'create_device': optional.add('keyboard_layout')
         description = DESCRIPTIONS[name] + ' Choose a device explicitly; an accepted action does not prove the UI changed, so inspect each resulting screen.'
         if name in ('get_latest_screenshot', *ACTIONS):
             description += ' Returned frame metadata includes actual width and height in pixels. Coordinates use the full image: x=px/width, y=py/height, origin top-left.'
-        if name in ('swipe', 'advance_feed', 'scroll'):
+        if name in ('swipe', 'advance_feed', 'scroll', 'pointer_drag'):
             description += ' The UI may still be animating; take a fresh screenshot before targeting.'
         result.append(dict(name=name, description=description,
                            inputSchema=dict(type="object", properties=props, required=[p for p in props if p not in optional], additionalProperties=False)))
